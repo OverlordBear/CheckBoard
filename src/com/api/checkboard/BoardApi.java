@@ -3,6 +3,7 @@ package com.api.checkboard;
 import com.alibaba.fastjson.JSONObject;
 import com.dt.checkboard.service.BoardService;
 import com.dt.common.util.LogUtil;
+import weaver.file.ImageFileManager;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -79,6 +80,76 @@ public class BoardApi {
             LogUtil.error("看板配置自检失败", t);
             return fail(t);
         }
+    }
+
+    /**
+     * 点检图片代理：按 docid（即 imagefileid）直接读图。
+     *
+     * <p>不拼 E9 的图片查看地址——那个 URL 结构会在渲染时加密，库里只有数字 id，
+     * 拼不出来；这里直接读字节流，绕开加密参数和版本差异。目前不做鉴权，也不加缓存。</p>
+     */
+    @GET
+    @Path("/image")
+    public Response image(@QueryParam("id") Integer id) {
+        if (id == null || id <= 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+        InputStream in = null;
+        try {
+            in = ImageFileManager.getInputStreamById(id);
+            if (in == null) {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+            byte[] data = readAll(in);
+            if (data.length == 0) {
+                return Response.status(Response.Status.NOT_FOUND).build();
+            }
+            return Response.ok(data)
+                    .type(contentType(data))
+                    .header("Cache-Control", "no-store")
+                    .build();
+        } catch (Throwable t) {
+            LogUtil.error("读取点检图片失败 id=" + id, t);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (Exception ignore) {
+                    // ignore
+                }
+            }
+        }
+    }
+
+    private static byte[] readAll(InputStream in) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) > 0) {
+            bos.write(buf, 0, n);
+        }
+        return bos.toByteArray();
+    }
+
+    private static String contentType(byte[] b) {
+        if (b.length >= 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) {
+            return "image/jpeg";
+        }
+        if (b.length >= 4 && (b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') {
+            return "image/png";
+        }
+        if (b.length >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') {
+            return "image/webp";
+        }
+        if (b.length >= 4 && b[0] == 'G' && b[1] == 'I' && b[2] == 'F' && b[3] == '8') {
+            return "image/gif";
+        }
+        if (b.length >= 2 && b[0] == 'B' && b[1] == 'M') {
+            return "image/bmp";
+        }
+        return "application/octet-stream";
     }
 
     @GET

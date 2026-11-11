@@ -65,7 +65,7 @@ table_sql/
 | `valueLabels` | 否 | 仅用于展示的取值文案，不参与判定 |
 | `items` | 否 | 点检项清单，只用于明细页定位异常项 |
 | `images` | 否 | 整单级图片字段（如现场照片） |
-| `imageUrl` | 配了图片字段时必填 | 图片地址模板，`{id}` 为文件 id，`{ctx}` 为应用上下文 |
+| `imageUrl` | 配了图片字段时必填 | 图片地址模板，推荐 `{ctx}/api/checkboard/image?id={id}` |
 | `detailUrl` | 否 | 原单链接模板，`{id}` 会替换成记录主键 |
 
 `unitField` 为空时，`units` 只能有一个元素（叉车就是这种）。
@@ -86,17 +86,14 @@ table_sql/
   { "field": "field015", "label": "② 易燃易爆管道", "imageField": "field030", "remarkField": "field031" }
 ],
 "images": [{ "field": "field022", "label": "现场照片" }],
-"imageUrl": "{ctx}/weaver/weaver.file.ImageFileView?imagefileid={id}"
+"imageUrl": "{ctx}/api/checkboard/image?id={id}"
 ```
 
 `field` 留空表示**占位**：该项不参与查询，只在 `/api/checkboard/config` 的 `pendingItems` 里列出来。可以先把标题写好，字段号后面再补，配置不会因此报错。
 
 `imageUrl` 兼容三种存法：纯文件 id（`123`）、逗号分隔 id（`123,456`）、泛微的 JSON 串；已经是 `http(s)://` 或 `/` 开头的地址原样使用。`{ctx}` 会替换成应用上下文，部署在 `/ec` 下不用改配置。
 
-图片地址和泛微版本有关，先拿一张真实照片确认。常见两种：
-
-- 图片：`{ctx}/weaver/weaver.file.ImageFileView?imagefileid={id}`
-- 附件：`{ctx}/weaver/weaver.file.FileDownload?fileid={id}&download=1`
+图片不走 E9 页面上那种 `FileDownload?fileid=...` 地址——那个 `fileid` 是渲染时加密出来的，库里只有数字 docid，拼不出来。配置统一指向本服务的 `/api/checkboard/image?id={id}`，由 `ImageFileManager.getInputStreamById` 直接读流返回。
 
 ### 热加载
 
@@ -125,6 +122,7 @@ table_sql/
 |---|---|---|
 | GET | `/api/checkboard/summary?date=2026-11-11` | 9 格状态汇总，页面主数据；加 `&force=1` 绕过缓存 |
 | GET | `/api/checkboard/detail?form=welder&date=2026-11-11&unit=0` | 某一格的原始记录，最多 200 条 |
+| GET | `/api/checkboard/image?id=255709` | 点检图片，按 docid 直接返回字节流 |
 | GET | `/api/checkboard/config` | 配置自检：字段是否存在、实际值域与配置是否一致 |
 | GET | `/api/checkboard/page` | 看板页面 |
 
@@ -254,7 +252,7 @@ SELECT * FROM edc_uf_table1112 WHERE id = (SELECT MAX(id) FROM edc_uf_table1112)
 | 「未登记编号」不为 0 | 表单里出现了配置外的单位值，对照 `unexpectedUnits` 补 `units` |
 | 异常记录没列出具体项 | 该表 `items` 没配，或项的值不在 `normal` 白名单里 |
 | 异常项下面没有备注 | 该项没配 `remarkField` |
-| 照片不显示 / 显示裂图 | `imageUrl` 模板与泛微版本不匹配，用真实照片地址核对一次 |
+| 照片不显示 / 显示裂图 | 直接打开 `/api/checkboard/image?id=<docid>`，404 说明 id 或字段不对，500 看日志 |
 | 照片返回 401/403 | 文件地址需要登录态或加密参数，换用 `isencrypt=1` 形式的地址 |
 
 **数据源健康**：如果某张表连续两天 0 条记录，先怀疑表单链接、字段改名、权限变化，而不是「大家都不点检」。看板本身不应该把「数据源断了」显示成「完成率 0%」。
@@ -279,7 +277,7 @@ SELECT * FROM edc_uf_table1112 WHERE id = (SELECT MAX(id) FROM edc_uf_table1112)
 - 1111 的合格/不良数量没有接入指标。这张表同时承载质量数据，完成率只看「有没有自检」，产量与不良率另行统计。
 - 叉车的点检项是 10 条占位，字段号待填；产线自检的 `items` 仍为空；焊机已配好 8 项且没有图片。
 - 焊机的备注列（`field024`~`field031`）是按列排布推断的，上线时核对一次，错位只改配置。
-- 图片地址模板与泛微版本相关，`{ctx}/weaver/weaver.file.ImageFileView?imagefileid={id}` 是常见形式，实际以测试环境为准。
+- 图片走 `/api/checkboard/image` 代理，按当前要求不做鉴权、不加缓存；知道 docid 就能拉图。
 - 明细最多返回 200 条，超过只显示最近 200 条。
 - 项目目前没有版本管理，建议 `git init` 后再上线，方便回滚配置。
 # CheckBoard

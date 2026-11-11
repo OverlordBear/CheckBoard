@@ -15,9 +15,9 @@
       ],
       "normal": ["0", "正常", "全部正常"],
       "valueLabels": { "0": "正常", "1": "异常" },
-      "imageUrl": "{ctx}/weaver/weaver.file.ImageFileView?imagefileid={id}",
+      "imageUrl": "{ctx}/api/checkboard/image?id={id}",
       "items": [
-        { "field": "field010", "label": "1. 大灯、转向灯、喇叭工作是否正常", "imageField": "field010", "remarkField": "field045" },
+        { "field": "field010", "label": "1. 大灯、转向灯、喇叭工作是否正常", "imageField": "field042", "remarkField": "field045" },
         { "field": "field013", "label": "2. 后视镜完整、视角良好", "imageField": "field044", "remarkField": "field046" },
         { "field": "field015", "label": "3.倒车蜂鸣器工作正常", "imageField": "field047", "remarkField": "field048" },
         { "field": "field017", "label": "4.机油(电池)指示、温度指示是否正常", "imageField": "field049", "remarkField": "field050" },
