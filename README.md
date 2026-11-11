@@ -283,3 +283,4 @@ SELECT * FROM edc_uf_table1112 WHERE id = (SELECT MAX(id) FROM edc_uf_table1112)
 - 明细最多返回 200 条，超过只显示最近 200 条。
 - 项目目前没有版本管理，建议 `git init` 后再上线，方便回滚配置。
 # CheckBoard
+# CheckBoard
