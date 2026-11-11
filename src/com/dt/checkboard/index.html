@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>点检看板</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: #f4f5f7; color: #1f2329;
+         font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .wrap { max-width: 620px; margin: 0 auto; padding: 14px 14px 28px; }
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  h1 { font-size: 18px; font-weight: 500; margin: 0; }
+  .sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+  .tools { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+  input[type=date] { border: 1px solid #e3e4e6; background: #fff; border-radius: 8px;
+                     padding: 4px 6px; font-size: 13px; color: #1f2329; }
+  .refresh { border: 1px solid #e3e4e6; background: #fff; border-radius: 8px;
+             padding: 5px 10px; font-size: 12px; color: #185FA5; cursor: pointer; }
+  .refresh:disabled { opacity: .45; cursor: default; }
+  .card { background: #fff; border: .5px solid rgba(0,0,0,.07); border-radius: 12px;
+          padding: 13px 14px; margin-top: 10px; }
+  .total { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .m { display: flex; flex-direction: column; min-width: 44px; }
+  .m b { font-size: 20px; font-weight: 500; line-height: 1.3; }
+  .m span { font-size: 11px; color: #9aa0a6; }
+  .progress { flex: 1 1 120px; height: 6px; background: #eef0f2; border-radius: 6px; overflow: hidden; }
+  .progress i { display: block; height: 100%; background: #185FA5; border-radius: 6px; }
+  .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .name { font-size: 15px; font-weight: 500; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .pill.ok { background: #EAF3DE; color: #3B6D11; }
+  .pill.none { background: #F1EFE8; color: #888780; }
+  .pill.warn { background: #FAEEDA; color: #854F0B; }
+  .pill.bad { background: #FCEBEB; color: #A32D2D; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip { border: .5px solid rgba(0,0,0,.1); background: #fff; border-radius: 8px;
+          padding: 6px 10px; font-size: 12px; color: #1f2329; cursor: pointer;
+          display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; background: #185FA5; display: inline-block; }
+  .chip.miss { border-style: dashed; border-color: rgba(0,0,0,.18); color: #888780;
+               background: #F7F7F5; cursor: default; }
+  .chip.miss i { background: #B4B2A9; }
+  .chip.bad { background: #FCEBEB; border-color: rgba(163,45,45,.25); color: #A32D2D; }
+  .chip.bad i { background: #E24B4A; }
+  .chip.empty { background: #FAEEDA; border-color: rgba(133,79,11,.2); color: #854F0B; }
+  .chip.empty i { background: #EF9F27; }
+  .chip em { font-style: normal; color: #9aa0a6; font-size: 11px; }
+  .foot { font-size: 11px; color: #9aa0a6; margin-top: 8px; }
+  .banner { background: #FAEEDA; color: #854F0B; border-radius: 10px; padding: 10px 12px;
+            font-size: 12px; margin-top: 10px; line-height: 1.7; }
+  .banner b { font-weight: 500; }
+  .empty { text-align: center; color: #9aa0a6; font-size: 13px; padding: 40px 0; }
+  .sheet { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #f4f5f7;
+           overflow-y: auto; display: none; z-index: 10; }
+  .sheet.on { display: block; }
+  .sheet-bar { position: sticky; top: 0; background: #f4f5f7; padding: 12px 14px;
+               display: flex; align-items: center; gap: 10px; border-bottom: .5px solid rgba(0,0,0,.06); }
+  .back { font-size: 20px; line-height: 1; color: #1f2329; padding: 2px 6px 2px 0;
+          background: none; border: 0; cursor: pointer; }
+  .sheet-title { font-size: 16px; font-weight: 500; }
+  .hint { font-size: 11px; color: #9aa0a6; margin: 2px 2px 6px; }
+  .row { background: #fff; border: .5px solid rgba(0,0,0,.07); border-radius: 10px;
+         padding: 11px 12px; margin-top: 8px; }
+  .row.bad { background: #FCEBEB; border-color: rgba(163,45,45,.18); }
+  .row-top { display: flex; justify-content: space-between; font-size: 13px; }
+  .row-sub { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  .row.bad .row-sub { color: #A32D2D; }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 20px; background: #F1EFE8;
+         color: #888780; margin-left: 6px; }
+  .tag.late { background: #FAEEDA; color: #854F0B; }
+  .items { margin-top: 8px; padding-top: 8px; border-top: .5px solid rgba(0,0,0,.07); }
+  .items-t { font-size: 11px; color: #A32D2D; margin-bottom: 2px; }
+  .item { padding: 3px 0; }
+  .item-row { display: flex; gap: 8px; font-size: 12px; }
+  .item-l { flex: 1; color: #1f2329; }
+  .item-v { color: #A32D2D; font-weight: 500; }
+  .item-note { font-size: 11px; color: #6b7280; margin-top: 2px; line-height: 1.6; white-space: pre-wrap; }
+  .pics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px;
+           border: .5px solid rgba(0,0,0,.08); background: #f2f3f5; cursor: zoom-in; }
+  .lightbox { position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+              background: rgba(0,0,0,.86); display: none; z-index: 20;
+              align-items: center; justify-content: center; padding: 20px; }
+  .lightbox.on { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  a.open { display: inline-block; margin-top: 6px; font-size: 12px; color: #185FA5; text-decoration: none; }
+  .cfg { float: right; font-size: 11px; color: #9aa0a6; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">点检看板</h1>
+      <div class="sub" id="sub">加载中…</div>
+    </div>
+    <div class="tools">
+      <input type="date" id="date">
+      <button type="button" class="refresh" id="refresh">刷新</button>
+    </div>
+  </header>
+  <div id="banner"></div>
+  <div id="total"></div>
+  <div id="list"></div>
+  <a class="cfg" id="cfg" href="/api/checkboard/config" target="_blank">配置自检</a>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-bar">
+    <button type="button" class="back" id="back">‹</button>
+    <span class="sheet-title" id="sheetTitle">明细</span>
+  </div>
+  <div class="wrap" id="sheetBody"></div>
+</div>
+
+<div class="lightbox" id="lightbox"><img id="lightboxImg" alt=""></div>
+
+<script>
+(function () {
+  // 按当前页面地址推导接口前缀，兼容部署在根路径或 /ec 等上下文下
+  var API = location.pathname.replace(/\/page\/?$/, '') || '/api/checkboard';
+  var state = { date: '', byKey: {}, pending: 0 };
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function nowText() {
+    var d = new Date();
+    return '刷新于 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+  function initialDate() {
+    var m = (location.search || '').match(/[?&]date=(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : today();
+  }
+  function getJson(url) {
+    return fetch(url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
+      return r.text().then(function (text) {
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          throw new Error('接口异常：HTTP ' + r.status
+            + (r.status === 200 ? '，返回内容不是 JSON，可能登录已失效或被网关拦截' : ''));
+        }
+      });
+    });
+  }
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var el = {
+    date: $('date'), sub: $('sub'), title: $('title'), banner: $('banner'),
+    list: $('list'), total: $('total'), sheet: $('sheet'), sheetTitle: $('sheetTitle'),
+    sheetBody: $('sheetBody')
+  };
+
+  state.date = initialDate();
+  el.date.value = state.date;
+  if ($('cfg')) { $('cfg').href = API + '/config'; }
+
+  var loading = false;
+
+  function load(force) {
+    if (loading) { return; }
+    loading = true;
+    var btn = $('refresh');
+    btn.disabled = true;
+    el.sub.textContent = '加载中…';
+    var url = API + '/summary?date=' + encodeURIComponent(state.date) + (force ? '&force=1' : '');
+    getJson(url).then(render).catch(function (e) {
+      el.sub.textContent = '加载失败';
+      el.list.innerHTML = '<div class="empty">' + esc(e.message || e) + '</div>';
+    }).then(function () {
+      loading = false;
+      btn.disabled = false;
+    });
+  }
+
+  function render(res) {
+    if (!res.success) {
+      el.sub.textContent = '加载失败';
+      el.total.innerHTML = '';
+      el.list.innerHTML = '<div class="empty">' + esc(res.error || '未知错误') + '</div>';
+      return;
+    }
+
+    state.byKey = {};
+    (res.forms || []).forEach(function (f) { state.byKey[f.key] = f; });
+
+    var t = res.total || {};
+    el.title.textContent = res.title || '点检看板';
+    var at = res.generatedAt ? ('数据 ' + res.generatedAt) : nowText();
+    el.sub.textContent = res.date + ' · 应检 ' + (t.required || 0) + ' 格，已检 ' + (t.done || 0) + ' 格 · ' + at;
+
+    var errs = [];
+    if (res.reloadError) { errs.push(res.reloadError); }
+    (res.configErrors || []).forEach(function (e) { errs.push(e); });
+    el.banner.innerHTML = errs.length
+      ? '<div class="banner"><b>配置有问题，看板可能不准</b><br>' + errs.map(esc).join('<br>') + '</div>'
+      : '';
+
+    renderTotal(t);
+
+    if (!res.forms || !res.forms.length) {
+      el.list.innerHTML = '<div class="empty">没有可用的表单配置</div>';
+      return;
+    }
+    el.list.innerHTML = res.forms.map(card).join('');
+  }
+
+  function renderTotal(t) {
+    var required = t.required || 0;
+    var done = t.done || 0;
+    var missing = t.missing || 0;
+    var bad = t.bad || 0;
+    var pct = required > 0 ? Math.round(done * 100 / required) : 0;
+    el.total.innerHTML = '<div class="card total">'
+      + metric(required, '应检格', '')
+      + metric(done, '已检', '')
+      + metric(missing, '未检', missing > 0 ? 'amber' : '')
+      + metric(bad, '异常', bad > 0 ? 'red' : '')
+      + '<div class="progress"><i style="width:' + pct + '%;'
+      + (bad > 0 ? 'background:#E24B4A' : '') + '"></i></div>'
+      + '</div>';
+  }
+
+  function metric(n, label, tone) {
+    var color = tone === 'red' ? '#A32D2D' : (tone === 'amber' ? '#854F0B' : '#1f2329');
+    return '<div class="m"><b style="color:' + color + '">' + n + '</b><span>' + label + '</span></div>';
+  }
+
+  function card(f) {
+    if (f.error) {
+      return '<div class="card">'
+        + '<div class="card-top"><span class="name">' + esc(f.name) + '</span>'
+        + '<span class="pill bad">查询失败</span></div>'
+        + '<div class="foot" style="color:#A32D2D">' + esc(f.error) + '</div>'
+        + '</div>';
+    }
+
+    var required = f.required || 0;
+    var done = f.done || 0;
+    var pill;
+    if (required > 0 && done >= required) {
+      pill = (f.bad || 0) > 0
+        ? '<span class="pill bad">已检齐 · 有异常</span>'
+        : '<span class="pill ok">已检齐</span>';
+    } else if (done > 0) {
+      pill = '<span class="pill warn">差 ' + (required - done) + ' 格</span>';
+    } else {
+      pill = '<span class="pill none">未检</span>';
+    }
+
+    var chips = (f.cells || []).map(function (c) {
+      var cls = c.done ? (c.bad ? ' bad' : (c.empty ? ' empty' : '')) : ' miss';
+      var tail = (c.done && c.count > 1) ? '<em>×' + c.count + '</em>' : '';
+      var attrs = c.done
+        ? ' data-key="' + esc(f.key) + '" data-unit="' + esc(c.code) + '" data-label="' + esc(c.label) + '"'
+        : '';
+      var tag = c.done ? 'button type="button"' : 'span';
+      var close = c.done ? 'button' : 'span';
+      return '<' + tag + ' class="chip' + cls + '"' + attrs + '><i></i>' + esc(c.label) + tail + '</' + close + '>';
+    }).join('');
+
+    var bits = [];
+    if (f.records) { bits.push('记录 ' + f.records + ' 条'); }
+    if (f.late) { bits.push('补录 ' + f.late + ' 格'); }
+    if (f.orphan) { bits.push('未登记编号 ' + f.orphan + ' 条'); }
+
+    return '<div class="card">'
+      + '<div class="card-top"><span class="name">' + esc(f.name) + '</span>' + pill + '</div>'
+      + (chips ? '<div class="chips">' + chips + '</div>' : '')
+      + (bits.length ? '<div class="foot">' + bits.join(' · ') + '</div>' : '')
+      + '</div>';
+  }
+
+  function closestChip(node) {
+    while (node && node !== document) {
+      if (node.getAttribute && node.getAttribute('data-key')) { return node; }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  el.list.addEventListener('click', function (e) {
+    var chip = closestChip(e.target);
+    if (!chip) { return; }
+    openDetail(chip.getAttribute('data-key'), chip.getAttribute('data-unit'), chip.getAttribute('data-label'));
+  });
+
+  function openDetail(key, unit, label) {
+    var f = state.byKey[key] || {};
+    el.sheetTitle.textContent = (f.name || key) + (label ? ' · ' + label : '');
+    el.sheetBody.innerHTML = '<div class="empty">加载中…</div>';
+    el.sheet.classList.add('on');
+    el.sheet.scrollTop = 0;
+
+    getJson(API + '/detail?form=' + encodeURIComponent(key)
+      + '&date=' + encodeURIComponent(state.date)
+      + '&unit=' + encodeURIComponent(unit || ''))
+      .then(function (res) {
+        if (!res.success) {
+          el.sheetBody.innerHTML = '<div class="empty">' + esc(res.error || '未知错误') + '</div>';
+          return;
+        }
+        state.pending = (res.pendingItems || []).length;
+        var rs = res.records || [];
+        if (!rs.length) {
+          el.sheetBody.innerHTML = '<div class="empty">当天没有记录</div>';
+          return;
+        }
+        var head = '<div class="hint">共 ' + rs.length + ' 条'
+          + (rs.length >= (res.limit || 200) ? '（只显示最近 ' + res.limit + ' 条）' : '') + '</div>';
+        el.sheetBody.innerHTML = head + rs.map(row).join('');
+      })
+      .catch(function (e) {
+        el.sheetBody.innerHTML = '<div class="empty">' + esc(e.message || e) + '</div>';
+      });
+  }
+
+  function row(r) {
+    var parts = [];
+    if (r.unitLabel) { parts.push(esc(r.unitLabel)); }
+    if (r.resultLabel) {
+      parts.push(esc(r.resultLabel));
+    } else if (r.empty) {
+      parts.push('结果未填');
+    }
+    if (r.late) { parts.push('<span class="tag late">补录</span>'); }
+    if (r.createdDate) { parts.push('创建 ' + esc(r.createdDate)); }
+
+    var items = r.abnormalItems || [];
+    var itemHtml = '';
+    if (items.length) {
+      itemHtml = '<div class="items"><div class="items-t">异常项 ' + items.length
+        + (r.itemTotal ? ' / ' + r.itemTotal : '') + '</div>'
+        + items.map(function (it) {
+            return '<div class="item">'
+              + '<div class="item-row"><span class="item-l">' + esc(it.label) + '</span>'
+              + '<span class="item-v">×</span></div>'
+              + (it.remark ? '<div class="item-note">备注：' + esc(it.remark) + '</div>' : '')
+              + pics(it.images) + '</div>';
+          }).join('') + '</div>';
+    } else if (r.abnormal) {
+      var note;
+      if (r.itemTotal > 0) {
+        note = '总结果为异常，但未发现具体异常项（明细可能未填）';
+      } else if (state.pending > 0) {
+        note = '点检项字段待配置（' + state.pending + ' 项），暂时看不到具体哪一项';
+      } else {
+        note = '总结果为异常';
+      }
+      itemHtml = '<div class="items"><div class="items-t">' + note + '</div></div>';
+    }
+
+    var url = r.url ? '<a class="open" href="' + esc(r.url) + '">打开原单 ›</a>' : '';
+    return '<div class="row' + (r.abnormal ? ' bad' : '') + '">'
+      + '<div class="row-top"><span>' + esc(r.inspector || '未知') + '</span>'
+      + '<span>' + esc(r.time || '') + '</span></div>'
+      + '<div class="row-sub">' + (parts.join(' · ') || '—') + '</div>'
+      + itemHtml
+      + pics(r.images) + url + '</div>';
+  }
+
+  function ctxPath() {
+    var i = location.pathname.indexOf('/api/');
+    return i > 0 ? location.pathname.substring(0, i) : '';
+  }
+
+  function pics(list) {
+    if (!list || !list.length) { return ''; }
+    return '<div class="pics">' + list.map(function (u) {
+      var src = String(u == null ? '' : u).replace('{ctx}', ctxPath());
+      return '<img class="thumb" src="' + esc(src) + '" data-full="' + esc(src)
+        + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">';
+    }).join('') + '</div>';
+  }
+
+  el.sheetBody.addEventListener('click', function (e) {
+    var full = e.target && e.target.getAttribute ? e.target.getAttribute('data-full') : '';
+    if (!full) { return; }
+    $('lightboxImg').src = full;
+    $('lightbox').classList.add('on');
+  });
+  $('lightbox').onclick = function () {
+    this.classList.remove('on');
+    $('lightboxImg').src = '';
+  };
+
+  $('back').onclick = function () { el.sheet.classList.remove('on'); };
+  $('refresh').onclick = function () { load(true); };
+  el.date.onchange = function () {
+    state.date = el.date.value || today();
+    if (window.history && history.replaceState) {
+      history.replaceState(null, '', location.pathname + '?date=' + state.date);
+    }
+    load(false);
+  };
+
+  load(false);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+{
+  "title": "点检看板",
+  "forms": [
+    {
+      "key": "forklift",
+      "name": "叉车日常点检",
+      "table": "edc_uf_table1112",
+      "dateField": "field007",
+      "timeField": "field071",
+      "inspectorField": "field040",
+      "resultField": "field009",
+      "unitField": "",
+      "units": [
+        { "code": "F", "label": "叉车" }
+      ],
+      "normal": ["0", "正常", "全部正常"],
+      "valueLabels": { "0": "正常", "1": "异常" },
+      "imageUrl": "{ctx}/weaver/weaver.file.ImageFileView?imagefileid={id}",
+      "items": [
+        { "field": "field010", "label": "1. 大灯、转向灯、喇叭工作是否正常", "imageField": "field010", "remarkField": "field045" },
+        { "field": "field013", "label": "2. 后视镜完整、视角良好", "imageField": "field044", "remarkField": "field046" },
+        { "field": "field015", "label": "3.倒车蜂鸣器工作正常", "imageField": "field047", "remarkField": "field048" },
+        { "field": "field017", "label": "4.机油(电池)指示、温度指示是否正常", "imageField": "field049", "remarkField": "field050" },
+        { "field": "field019", "label": "5.方向盘转动灵活无异常", "imageField": "field051", "remarkField": "field052" },
+        { "field": "field021", "label": "6.手刹车、脚刹车性能良好", "imageField": "field053", "remarkField": "field054" },
+        { "field": "field023", "label": "7.车辆外观无明显擦痕、无渗油", "imageField": "field055", "remarkField": "field056" },
+        { "field": "field025", "label": "8.铲齿定位销定位可靠、安全", "imageField": "field057", "remarkField": "field058" },
+        { "field": "field027", "label": "9.轮胎是否无较大裂痕、固定螺栓完好无缺失", "imageField": "field059", "remarkField": "field060" },
+        { "field": "field029", "label": "10.各运动部件均无异常情况", "imageField": "field061", "remarkField": "field062" },
+        { "field": "field031", "label": "11.车辆关闭状态，并停在规定区域", "imageField": "field063", "remarkField": "field064" },
+        { "field": "field033", "label": "12.各部件均停放到位", "imageField": "field065", "remarkField": "field066" },
+        { "field": "field035", "label": "13.叉车外观是否清洁", "imageField": "field067", "remarkField": "field068" },
+        { "field": "field037", "label": "14.充电是否正常和异响", "imageField": "field069", "remarkField": "field070" }
+      ],
+      "images": [],
+      "detailUrl": ""
+    },
+    {
+      "key": "welder",
+      "name": "焊机点检",
+      "table": "edc_uf_table1109",
+      "dateField": "field002",
+      "timeField": "field003",
+      "inspectorField": "field001",
+      "resultField": "field013",
+      "unitField": "field023",
+      "units": [
+        { "code": "0", "label": "1号焊机" },
+        { "code": "1", "label": "2号焊机" },
+        { "code": "2", "label": "3号焊机" },
+        { "code": "3", "label": "4号焊机" }
+      ],
+      "normal": ["0", "正常"],
+      "valueLabels": { "0": "正常", "1": "异常" },
+      "items": [
+        { "field": "field014", "label": "① 外壳PE线接线正确、连接可靠", "remarkField": "field024" },
+        { "field": "field015", "label": "② 易燃易爆管道", "remarkField": "field025" },
+        { "field": "field016", "label": "③ 一次侧电源线", "remarkField": "field026" },
+        { "field": "field017", "label": "④ 二次线及焊钳", "remarkField": "field027" },
+        { "field": "field018", "label": "⑤ 保护气路", "remarkField": "field028" },
+        { "field": "field019", "label": "⑥ 场所清洁", "remarkField": "field029" },
+        { "field": "field020", "label": "⑦ 二次回路", "remarkField": "field030" },
+        { "field": "field021", "label": "⑧ 防护罩", "remarkField": "field031" }
+      ],
+      "detailUrl": ""
+    },
+    {
+      "key": "line",
+      "name": "产线自检（辊压）",
+      "table": "edc_uf_table1111",
+      "dateField": "field004",
+      "timeField": "field010",
+      "inspectorField": "field011",
+      "resultField": "field029",
+      "unitField": "field008",
+      "units": [
+        { "code": "0", "label": "1线" },
+        { "code": "1", "label": "2线" },
+        { "code": "2", "label": "3线" },
+        { "code": "3", "label": "4线" }
+      ],
+      "normal": ["0", "全部合格"],
+      "valueLabels": { "0": "全部合格", "1": "有不合格项" },
+      "imageUrl": "{ctx}/weaver/weaver.file.ImageFileView?imagefileid={id}",
+      "detailUrl": ""
+    }
+  ]
+}
