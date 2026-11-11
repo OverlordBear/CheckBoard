@@ -3,6 +3,7 @@ package com.api.checkboard;
 import com.alibaba.fastjson.JSONObject;
 import com.dt.checkboard.service.BoardService;
 import com.dt.common.util.LogUtil;
+import weaver.conn.RecordSet;
 import weaver.file.ImageFileManager;
 
 import javax.ws.rs.GET;
@@ -98,6 +99,13 @@ public class BoardApi {
         try {
             in = ImageFileManager.getInputStreamById(id);
             if (in == null) {
+                // 建模表单的图片字段存的是 DocImageFile 的 id 或 docid，需要再解析一层
+                int imageFileId = resolveImageFileId(id);
+                if (imageFileId > 0) {
+                    in = ImageFileManager.getInputStreamById(imageFileId);
+                }
+            }
+            if (in == null) {
                 return Response.status(Response.Status.NOT_FOUND).build();
             }
             byte[] data = readAll(in);
@@ -130,6 +138,34 @@ public class BoardApi {
             bos.write(buf, 0, n);
         }
         return bos.toByteArray();
+    }
+
+    /**
+     * 把建模图片字段里的值解析成 imagefile 的 id。
+     *
+     * <p>field 里存的是 DocImageFile.docid（不是 imagefile.id），直接 getInputStreamById
+     * 取不到。先按 docid 查，再兜底按 DocImageFile.id 查。</p>
+     */
+    private static int resolveImageFileId(int id) {
+        try {
+            RecordSet rs = new RecordSet();
+            rs.executeQuery("SELECT imagefileid FROM DocImageFile WHERE docid = ? AND imagefileid > 0"
+                    + " ORDER BY versionId DESC", id);
+            int imageFileId = readImageFileId(rs);
+            if (imageFileId > 0) {
+                return imageFileId;
+            }
+            rs.executeQuery("SELECT imagefileid FROM DocImageFile WHERE id = ? AND imagefileid > 0"
+                    + " ORDER BY versionId DESC", id);
+            return readImageFileId(rs);
+        } catch (Exception e) {
+            LogUtil.error("解析点检图片 id 失败 id=" + id, e);
+            return 0;
+        }
+    }
+
+    private static int readImageFileId(RecordSet rs) {
+        return rs.next() ? rs.getInt("imagefileid") : 0;
     }
 
     private static String contentType(byte[] b) {

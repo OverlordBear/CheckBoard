@@ -95,6 +95,46 @@ table_sql/
 
 图片不走 E9 页面上那种 `FileDownload?fileid=...` 地址——那个 `fileid` 是渲染时加密出来的，库里只有数字 docid，拼不出来。配置统一指向本服务的 `/api/checkboard/image?id={id}`，由 `ImageFileManager.getInputStreamById` 直接读流返回。
 
+### 图片的存储链路（docid 与 imagefileid）
+
+点检表的图片字段和自建上传的照片不是一种 id，这是图片 404 的根源：
+
+```
+① 自定义上传（如 fanweiTest 的维修照片）
+   业务表.photo = 327527 ─────────────► imagefile.imagefileid = 327527
+                                        （getInputStreamById 一步读到）
+
+② 建模图片控件（叉车、产线的图片字段）
+   业务表.field042 = 255709 ──docid──► DocImageFile.docid = 255709
+                                        │ imagefileid = 327527
+                                        ▼
+                                      imagefile.imagefileid = 327527
+```
+
+| 表 | 关键列 | 作用 |
+|---|---|---|
+| `imagefile` | `imagefileid`、`imagefilename`、`imagefiletype`、`filerealpath` | 真正的文件记录，`getInputStreamById` 读这张表 |
+| `DocImageFile` | `id`、`docid`、`imagefileid`、`docfiletype`、`versionId` | 文档与文件的关联，建模图片控件存的是这里的 `docid` |
+
+建模控件挂的是文档，业务表存 docid；文档再通过 `DocImageFile` 关联到真正的 `imagefileid`。两个表的自增区间会重叠，同一个数字在两张表里指的不是一个东西——比如 255709 在 `imagefile` 里是别人的 PDF，在 `DocImageFile` 里才是这条点检的 docid。
+
+`/api/checkboard/image` 的解析顺序：
+
+1. 直接 `ImageFileManager.getInputStreamById(id)`，命中就返回（自定义上传的值走这条）
+2. 未命中，`SELECT imagefileid FROM DocImageFile WHERE docid = ?`（建模控件走这条）
+3. 仍未命中，按 `DocImageFile.id = ?` 再查一次
+4. 都取不到才 404
+
+排查用：
+
+```sql
+SELECT imagefileid, imagefilename, imagefiletype, filerealpath
+FROM imagefile WHERE imagefileid = 327527;
+
+SELECT id, docid, imagefileid, docfiletype
+FROM DocImageFile WHERE docid = 255709;
+```
+
 ### 热加载
 
 配置文件每 5 秒检查一次 `lastModified`，改动后自动生效，**不需要重启泛微**。
@@ -253,6 +293,7 @@ SELECT * FROM edc_uf_table1112 WHERE id = (SELECT MAX(id) FROM edc_uf_table1112)
 | 异常记录没列出具体项 | 该表 `items` 没配，或项的值不在 `normal` 白名单里 |
 | 异常项下面没有备注 | 该项没配 `remarkField` |
 | 照片不显示 / 显示裂图 | 直接打开 `/api/checkboard/image?id=<docid>`，404 说明 id 或字段不对，500 看日志 |
+| 图片 404，但 imagefile 里查得到同号记录 | 那个号在 imagefile 里是别的文件；业务表存的是 docid，按 `DocImageFile.docid` 查真正的 imagefileid |
 | 照片返回 401/403 | 文件地址需要登录态或加密参数，换用 `isencrypt=1` 形式的地址 |
 
 **数据源健康**：如果某张表连续两天 0 条记录，先怀疑表单链接、字段改名、权限变化，而不是「大家都不点检」。看板本身不应该把「数据源断了」显示成「完成率 0%」。
