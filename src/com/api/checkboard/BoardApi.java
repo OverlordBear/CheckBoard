@@ -21,7 +21,6 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * 点检看板接口。
- *
  * <ul>
  *   <li>GET /api/checkboard/summary?date=yyyy-MM-dd</li>
  *   <li>GET /api/checkboard/detail?form=&amp;date=&amp;unit=</li>
