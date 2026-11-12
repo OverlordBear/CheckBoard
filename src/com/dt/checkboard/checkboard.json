@@ -81,7 +81,18 @@
       ],
       "normal": ["0", "全部合格"],
       "valueLabels": { "0": "全部合格", "1": "有不合格项" },
-      "imageUrl": "{ctx}/weaver/weaver.file.ImageFileView?imagefileid={id}",
+      "items": [
+        { "field": "field013", "label": "点检项 1" },
+        { "field": "field014", "label": "点检项 2" },
+        { "field": "field015", "label": "点检项 3" },
+        { "field": "field016", "label": "点检项 4" },
+        { "field": "field017", "label": "点检项 5" },
+        { "field": "field018", "label": "点检项 6" },
+        { "field": "field019", "label": "点检项 7" },
+        { "field": "field020", "label": "点检项 8" },
+        { "field": "field021", "label": "点检项 9" },
+        { "field": "field022", "label": "点检项 10" }
+      ],
       "detailUrl": ""
     }
   ]

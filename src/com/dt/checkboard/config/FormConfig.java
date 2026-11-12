@@ -373,7 +373,7 @@ public final class FormConfig {
             }
         }
         if (needImageUrl && f.imageUrl.isEmpty()) {
-            errs.add("配了图片字段就必须配 imageUrl，如 /weaver/weaver.file.ImageFileView?imagefileid={id}");
+            errs.add("配了图片字段就必须配 imageUrl，推荐 {ctx}/api/checkboard/image?id={id}");
         }
 
         if (!errs.isEmpty()) {

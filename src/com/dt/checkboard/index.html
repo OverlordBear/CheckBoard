@@ -164,20 +164,25 @@
   el.date.value = state.date;
   if ($('cfg')) { $('cfg').href = API + '/config'; }
 
-  var loading = false;
+  // 每次请求分配一个序号，只有最新一次请求的结果允许落到页面。
+  // 旧版用 loading 布尔锁，加载中切日期会直接 return：日期显示变了，数据还是旧的。
+  var loadSeq = 0;
 
   function load(force) {
-    if (loading) { return; }
-    loading = true;
+    var seq = ++loadSeq;
     var btn = $('refresh');
     btn.disabled = true;
     el.sub.textContent = '加载中…';
     var url = API + '/summary?date=' + encodeURIComponent(state.date) + (force ? '&force=1' : '');
-    getJson(url).then(render).catch(function (e) {
+    getJson(url).then(function (res) {
+      if (seq !== loadSeq) { return; }
+      render(res);
+    }).catch(function (e) {
+      if (seq !== loadSeq) { return; }
       el.sub.textContent = '加载失败';
       el.list.innerHTML = '<div class="empty">' + esc(e.message || e) + '</div>';
     }).then(function () {
-      loading = false;
+      if (seq !== loadSeq) { return; }
       btn.disabled = false;
     });
   }
@@ -294,17 +299,23 @@
     openDetail(chip.getAttribute('data-key'), chip.getAttribute('data-unit'), chip.getAttribute('data-label'));
   });
 
+  // 明细同理：连点两个格子时，后返回的旧请求不能覆盖先打开的那一条。
+  var detailSeq = 0;
+
   function openDetail(key, unit, label) {
+    var seq = ++detailSeq;
     var f = state.byKey[key] || {};
     el.sheetTitle.textContent = (f.name || key) + (label ? ' · ' + label : '');
     el.sheetBody.innerHTML = '<div class="empty">加载中…</div>';
     el.sheet.classList.add('on');
     el.sheet.scrollTop = 0;
+    state.pending = 0;
 
     getJson(API + '/detail?form=' + encodeURIComponent(key)
       + '&date=' + encodeURIComponent(state.date)
       + '&unit=' + encodeURIComponent(unit || ''))
       .then(function (res) {
+        if (seq !== detailSeq) { return; }
         if (!res.success) {
           el.sheetBody.innerHTML = '<div class="empty">' + esc(res.error || '未知错误') + '</div>';
           return;
@@ -320,6 +331,7 @@
         el.sheetBody.innerHTML = head + rs.map(row).join('');
       })
       .catch(function (e) {
+        if (seq !== detailSeq) { return; }
         el.sheetBody.innerHTML = '<div class="empty">' + esc(e.message || e) + '</div>';
       });
   }
@@ -393,7 +405,10 @@
     $('lightboxImg').src = '';
   };
 
-  $('back').onclick = function () { el.sheet.classList.remove('on'); };
+  $('back').onclick = function () {
+    detailSeq++;                 // 作废还没返回的明细请求
+    el.sheet.classList.remove('on');
+  };
   $('refresh').onclick = function () { load(true); };
   el.date.onchange = function () {
     state.date = el.date.value || today();

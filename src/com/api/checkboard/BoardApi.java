@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /**
  * 点检看板接口。
@@ -32,41 +33,45 @@ import java.time.format.DateTimeFormatter;
 public class BoardApi {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final String JSON_UTF8 = "application/json;charset=UTF-8";
 
     private final BoardService service = new BoardService();
 
     @GET
     @Path("/summary")
     @Produces(MediaType.APPLICATION_JSON)
-    public String summary(@QueryParam("date") String date, @QueryParam("force") String force) {
+    public Response summary(@QueryParam("date") String date, @QueryParam("force") String force) {
         String day = normalize(date);
+        if (day == null) {
+            return badDate(date);
+        }
         boolean fresh = "1".equals(force) || "true".equalsIgnoreCase(force);
         try {
-            return service.summary(day, fresh).toString();
+            return json(service.summary(day, fresh).toString());
         } catch (Throwable t) {
             LogUtil.error("看板概况查询失败 date=" + day, t);
-            return fail(t);
+            return json(fail(t));
         }
     }
 
     @GET
     @Path("/detail")
     @Produces(MediaType.APPLICATION_JSON)
-    public String detail(@QueryParam("form") String form,
-                         @QueryParam("date") String date,
-                         @QueryParam("unit") String unit) {
-        String day = normalize(date);
+    public Response detail(@QueryParam("form") String form,
+                           @QueryParam("date") String date,
+                           @QueryParam("unit") String unit) {
         if (form == null || form.trim().isEmpty()) {
-            JSONObject res = new JSONObject();
-            res.put("success", false);
-            res.put("error", "缺少 form 参数");
-            return res.toString();
+            return badRequest("缺少 form 参数");
+        }
+        String day = normalize(date);
+        if (day == null) {
+            return badDate(date);
         }
         try {
-            return service.detail(form.trim(), day, unit == null ? "" : unit.trim()).toString();
+            return json(service.detail(form.trim(), day, unit == null ? "" : unit.trim()).toString());
         } catch (Throwable t) {
             LogUtil.error("看板明细查询失败 form=" + form + " date=" + day, t);
-            return fail(t);
+            return json(fail(t));
         }
     }
 
@@ -213,14 +218,43 @@ public class BoardApi {
         }
     }
 
-    private String normalize(String date) {
-        if (date == null || !date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+    /**
+     * 解析日期参数：留空取今天；格式或日期本身不合法返回 null，由接口回 400。
+     *
+     * <p>用 ISO_LOCAL_DATE 严格解析，2026-02-30、2026-99-99 这类值会被拒绝，
+     * 不再像旧版那样静默退回今天——那会把「日期传错」显示成「今天的数据」。</p>
+     */
+    private static String normalize(String date) {
+        if (date == null || date.trim().isEmpty()) {
             return LocalDate.now().format(DATE);
         }
-        return date;
+        try {
+            return LocalDate.parse(date.trim(), DateTimeFormatter.ISO_LOCAL_DATE).format(DATE);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
-    private String fail(Throwable t) {
+    private static Response json(String body) {
+        return Response.ok(body).type(JSON_UTF8).build();
+    }
+
+    private static Response badDate(String raw) {
+        return badRequest("date 参数不合法：" + (raw == null ? "" : raw.trim())
+                + "，应为 yyyy-MM-dd（例如 2026-11-09）");
+    }
+
+    private static Response badRequest(String message) {
+        JSONObject res = new JSONObject();
+        res.put("success", false);
+        res.put("error", message);
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(res.toString())
+                .type(JSON_UTF8)
+                .build();
+    }
+
+    private static String fail(Throwable t) {
         JSONObject res = new JSONObject();
         res.put("success", false);
         res.put("error", t.getMessage() == null ? t.toString() : t.getMessage());
